@@ -10,19 +10,26 @@ from .serializers import (
 )
 from django.shortcuts import get_object_or_404
 
-class AuctionListCreateView(generics.ListCreateAPIView):
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    
-    def get_serializer_class(self):
-        if self.request.method == 'POST':
-            return CreateAuctionSerializer
-        return AuctionSerializer
+__all__ = [
+    'AuctionListView',
+    'AuctionCreateView',
+    'AuctionDetailView', 
+    'BidCreateView'
+]
+
+class AuctionListView(generics.ListAPIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = AuctionSerializer
 
     def get_queryset(self):
         queryset = Auction.objects.all()
         if self.request.query_params.get('active'):
             queryset = queryset.filter(is_active=True)
         return queryset
+
+class AuctionCreateView(generics.CreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CreateAuctionSerializer
 
     def perform_create(self, serializer):
         serializer.save(creator=self.request.user)
