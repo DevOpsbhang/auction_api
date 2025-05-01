@@ -4,7 +4,7 @@ from .views import (
     AuctionCreateView,
     AuctionDetailView,
     BidCreateView,
-    BidListView,
+    BidListAPIView,
     BidDetailView,
     AuctionEndView
 )
@@ -14,7 +14,7 @@ urlpatterns = [
     path('create/', AuctionCreateView.as_view(), name='auction-create'),
     path('<int:pk>/', AuctionDetailView.as_view(), name='auction-detail'),
     path('<int:pk>/end/', AuctionEndView.as_view(), name='auction-end'),
-    path('<int:pk>/bids/', BidListView.as_view(), name='bid-list'),
+    path('bids/', BidListAPIView.as_view(), name='bids-list'),
     path('<int:pk>/bids/create/', BidCreateView.as_view(), name='bid-create'),
     path('bids/<int:pk>/', BidDetailView.as_view(), name='bid-detail'),
 ]

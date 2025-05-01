@@ -52,13 +52,23 @@ class AuctionDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise permissions.PermissionDenied("You can only delete your own auctions")
         instance.delete()
 
-class BidListView(generics.ListAPIView):
+# class BidListView(generics.ListAPIView):
+#     serializer_class = BidSerializer
+#     permission_classes = [permissions.IsAuthenticated]
+
+#     def get_queryset(self):
+#         auction_id = self.kwargs.get('pk')
+#         return Bid.objects.filter(auction_id=auction_id)
+
+class BidListAPIView(generics.ListAPIView):
     serializer_class = BidSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        auction_id = self.kwargs.get('pk')
-        return Bid.objects.filter(auction_id=auction_id)
+        # Optionally filter by auction ID (if passed in the query params)
+        auction_id = self.request.query_params.get('auction')
+        if auction_id:
+            return Bid.objects.filter(auction_id=auction_id)
+        return Bid.objects.all()
 
 class BidDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Bid.objects.all()
