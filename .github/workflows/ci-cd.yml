@@ -61,7 +61,7 @@ jobs:
         DJANGO_SECRET_KEY: test-secret-key
         DEBUG: "1"
       run: |
-        python manage.py test
+        python manage.py test auctions \ && python mange.py test authentication
         
   build:
     needs: test
