@@ -13,8 +13,11 @@ from django.shortcuts import get_object_or_404
 __all__ = [
     'AuctionListView',
     'AuctionCreateView',
-    'AuctionDetailView', 
-    'BidCreateView'
+    'AuctionDetailView',
+    'BidCreateView',
+    'BidListView',
+    'BidDetailView',
+    'AuctionEndView'
 ]
 
 class AuctionListView(generics.ListAPIView):
@@ -49,6 +52,33 @@ class AuctionDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise permissions.PermissionDenied("You can only delete your own auctions")
         instance.delete()
 
+class BidListView(generics.ListAPIView):
+    serializer_class = BidSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        auction_id = self.kwargs.get('pk')
+        return Bid.objects.filter(auction_id=auction_id)
+
+class BidDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Bid.objects.all()
+    serializer_class = BidSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_update(self, serializer):
+        if serializer.instance.bidder != self.request.user:
+            raise permissions.PermissionDenied("You can only update your own bids")
+        if not serializer.instance.auction.is_active:
+            raise ValueError("Cannot update bid on closed auction")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.bidder != self.request.user:
+            raise permissions.PermissionDenied("You can only delete your own bids")
+        if not instance.auction.is_active:
+            raise ValueError("Cannot delete bid on closed auction")
+        instance.delete()
+
 class BidCreateView(generics.CreateAPIView):
     serializer_class = PlaceBidSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -81,4 +111,32 @@ class BidCreateView(generics.CreateAPIView):
         return Response(
             BidSerializer(bid, context=self.get_serializer_context()).data,
             status=status.HTTP_201_CREATED
+        )
+
+class AuctionEndView(generics.UpdateAPIView):
+    queryset = Auction.objects.all()
+    serializer_class = AuctionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def update(self, request, *args, **kwargs):
+        auction = self.get_object()
+        
+        if not auction.is_active:
+            return Response(
+                {"detail": "Auction is already closed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        if auction.creator != request.user:
+            raise permissions.PermissionDenied("Only the auction creator can end the auction")
+
+        auction.is_active = False
+        highest_bid = auction.bids.order_by('-amount').first()
+        if highest_bid:
+            auction.winner = highest_bid.bidder
+        auction.save()
+
+        return Response(
+            AuctionSerializer(auction).data,
+            status=status.HTTP_200_OK
         )
