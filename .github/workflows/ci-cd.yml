@@ -1,24 +1,24 @@
-name: Django CI/CD Auction API CI/CD Pipeline
- 
- on:
-   push:
-     branches: [ "main" ]
- 
- jobs:
-   build:
-     runs-on: ubuntu-latest
- 
-     steps:
-     - uses: actions/checkout@v4
- 
-     - name: Set up Python
-       uses: actions/setup-python@v3
-       with:
-         python-version: '3.9'
- 
-     - name: Install dependencies
-       run: |
-         pip install -r requirements.txt
+name: Django CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
 
     - name: Run tests
       run: |
@@ -28,7 +28,8 @@ name: Django CI/CD Auction API CI/CD Pipeline
       run: |
         docker build -t auction_app:latest .
 
-    # Optional: Add steps to push image to registry here if needed 
+    # Optional: Add steps to push image to registry here if needed
+
   
   deploy-dev:  
     needs: build  
