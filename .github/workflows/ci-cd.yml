@@ -31,7 +31,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python 3.9
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
@@ -41,7 +41,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Create CI environment file
+    - name: Create .env file for CI
       run: |
         echo "DB_NAME=test_db" >> .env
         echo "DB_USER=postgres" >> .env
@@ -51,17 +51,12 @@ jobs:
         echo "DEBUG=True" >> .env
         echo "DJANGO_SECRET_KEY=ci-test-secret-key" >> .env
 
-    - name: Wait for PostgreSQL
-      run: |
-        sudo apt-get install -y netcat
-        timeout 60 bash -c 'until nc -z localhost 5432; do sleep 1; done'
-
-    - name: Run database migrations
+    - name: Run migrations
       run: |
         python manage.py makemigrations
         python manage.py migrate
 
-    - name: Run Django tests
+    - name: Run tests
       run: |
         python manage.py test auctions --verbosity=2
         python manage.py test authentication --verbosity=2
