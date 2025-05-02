@@ -1,82 +1,140 @@
-name: CI/CD Pipeline
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: postgres:13
-        env:
-          POSTGRES_DB: auction_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 1234
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip \ 
-        && pip install -r requirements.txt
-    
-    - name: Run migrations
-      env:
-        DB_NAME: auction_test
-        DB_USER: postgres
-        DB_PASSWORD: 1234
-        DB_HOST: localhost
-        DB_PORT: 5432
-        DJANGO_SECRET_KEY: test-secret-key
-        DEBUG: "1"
-      run: |
-        python manage.py makemigrations
-        python manage.py migrate
-    
-    - name: Run tests
-      env:
-        DB_NAME: auction_test
-        DB_USER: postgres
-        DB_PASSWORD: 1234
-        DB_HOST: localhost
-        DB_PORT: 5432
-        DJANGO_SECRET_KEY: test-secret-key
-        DEBUG: "1"
-      run: |
-        python manage.py test auctions \ && python mange.py test authentication
-        
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+name: Auction API CI/CD Pipeline  
+  
+on:  
+  push:  
+    branches: [ main ]  
+  pull_request:  
+    branches: [ main ]  
+  workflow_dispatch:  # Allow manual triggering  
+  
+jobs:  
+  test:  
+    runs-on: ubuntu-latest  
       
-    - name: Build Docker image
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        push: false
-        tags: auction-api:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+    services:  
+      postgres:  
+        image: postgres:13  
+        env:  
+          POSTGRES_DB: auction_test  
+          POSTGRES_USER: postgres  
+          POSTGRES_PASSWORD: 1234  
+        ports:  
+          - 5432:5432  
+        options: >-  
+          --health-cmd pg_isready  
+          --health-interval 10s  
+          --health-timeout 5s  
+          --health-retries 5  
+  
+    steps:  
+    - uses: actions/checkout@v3  
+      
+    - name: Set up Python 3.10  
+      uses: actions/setup-python@v4  
+      with:  
+        python-version: '3.10'  
+      
+    - name: Install dependencies  
+      run: |  
+        python -m pip install --upgrade pip  
+        pip install -r requirements.txt  
+        pip install pytest pytest-cov  
+      
+    - name: Run migrations  
+      env:  
+        DB_NAME: auction_test  
+        DB_USER: postgres  
+        DB_PASSWORD: 1234  
+        DB_HOST: localhost  
+        DB_PORT: 5432  
+        DJANGO_SECRET_KEY: test-secret-key  
+        DEBUG: "1"  
+      run: |  
+        python manage.py makemigrations  
+        python manage.py migrate  
+      
+    - name: Run tests with coverage  
+      env:  
+        DB_NAME: auction_test  
+        DB_USER: postgres  
+        DB_PASSWORD: 1234  
+        DB_HOST: localhost  
+        DB_PORT: 5432  
+        DJANGO_SECRET_KEY: test-secret-key  
+        DEBUG: "1"  
+      run: |  
+        pytest --cov=. --cov-report=xml  
+      
+    - name: Upload coverage report  
+      uses: codecov/codecov-action@v3  
+      with:  
+        file: ./coverage.xml  
+        fail_ci_if_error: true  
+  
+  lint:  
+    runs-on: ubuntu-latest  
+    steps:  
+    - uses: actions/checkout@v3  
+      
+    - name: Set up Python 3.10  
+      uses: actions/setup-python@v4  
+      with:  
+        python-version: '3.10'  
+      
+    - name: Install linting dependencies  
+      run: |  
+        python -m pip install --upgrade pip  
+        pip install flake8 black isort  
+      
+    - name: Run linters  
+      run: |  
+        flake8 .  
+        black --check .  
+        isort --check-only --profile black .  
+  
+  build:  
+    needs: [test, lint]  
+    runs-on: ubuntu-latest  
+    steps:  
+    - uses: actions/checkout@v3  
+      
+    - name: Set up Docker Buildx  
+      uses: docker/setup-buildx-action@v2  
+        
+    - name: Build and push Docker image  
+      uses: docker/build-push-action@v4  
+      with:  
+        context: .  
+        push: ${{ github.event_name != 'pull_request' }}  
+        tags: |  
+          ghcr.io/${{ github.repository_owner }}/auction-api:latest  
+          ghcr.io/${{ github.repository_owner }}/auction-api:${{ github.sha }}  
+        cache-from: type=gha  
+        cache-to: type=gha,mode=max  
+  
+  deploy-dev:  
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'  
+    needs: build  
+    runs-on: ubuntu-latest  
+    environment: development  
+    steps:  
+    - uses: actions/checkout@v3  
+      
+    - name: Set up Docker Compose  
+      run: |  
+        mkdir -p ~/.docker/cli-plugins/  
+        curl -SL https://github.com/docker/compose/releases/download/v2.17.2/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose  
+        chmod +x ~/.docker/cli-plugins/docker-compose  
+      
+    - name: Deploy to development environment  
+      env:  
+        DB_NAME: ${{ secrets.DB_NAME }}  
+        DB_USER: ${{ secrets.DB_USER }}  
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}  
+        DB_HOST: ${{ secrets.DB_HOST }}  
+        DB_PORT: ${{ secrets.DB_PORT }}  
+        DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}  
+        DEBUG: "1"  
+      run: |  
+        docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d  
+        docker-compose exec -T web python manage.py migrate
