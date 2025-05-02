@@ -1,4 +1,4 @@
-name: Django CI
+name: Django CI/CD
 
 on:
   push:
@@ -10,13 +10,22 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
     - name: Set up Python
       uses: actions/setup-python@v3
       with:
         python-version: '3.9'
+
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
+
     - name: Run tests
       run: |
         python manage.py test auctions && python manage.py test authentication
+
+    - name: Build Docker image
+      run: |
+        docker build -t auction_app:latest .
+
+    # Optional: Add steps to push image to registry here if needed

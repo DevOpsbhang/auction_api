@@ -9,7 +9,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      image: auction_app:latest
+    image: auction_app:latest
 
     volumes:
       - .:/app
