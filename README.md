@@ -112,7 +112,7 @@ docker-compose exec web python manage.py createsuperuser
 Run all tests:
 ```bash
 # Using Django test runner
-python manage.py test
+python manage.py test auctions && python manage.py test authentication
 
 # Using pytest with coverage
 pytest --cov=.
