@@ -64,3 +64,16 @@ jobs:
       run: |
         python manage.py test auctions --verbosity=2
         python manage.py test authentication --verbosity=2
+
+  docker-build:
+    needs: test  # Require test job to succeed first
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.DOCKER_IMAGE }}:${{ env.TAG }} .
